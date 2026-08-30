@@ -20,7 +20,7 @@ class HybridRAGPipeline(BaseRAGPipeline):
         self.llm = None
         self.store = ChromaStore(self.settings.chroma_persist_dir)
         self.bm25 = BM25Retriever(k1=self.settings.bm25_k1, b=self.settings.bm25_b)
-        self.reranker = get_reranker(self.settings.reranker_enabled)
+        self.reranker = get_reranker(self.settings)
 
     def prepare_indexes(self, chunks) -> None:
         if self.store.exists():
@@ -44,17 +44,22 @@ class HybridRAGPipeline(BaseRAGPipeline):
         dense = DenseRetriever(self.store, method_name="chroma_dense")
         hybrid = HybridRetriever(dense, self.bm25)
 
+        # Retrieve candidate pool (initial_k instead of top_k)
+        candidate_k = self.settings.initial_k if self.settings.reranker_enabled else self.settings.top_k
+
         if self.settings.hybrid_fusion_strategy == "weighted":
             retrieved = hybrid.retrieve_weighted(
                 question,
-                top_k=self.settings.top_k,
+                top_k=candidate_k,
                 dense_weight=self.settings.hybrid_dense_weight,
                 bm25_weight=self.settings.hybrid_bm25_weight,
             )
         else:
-            retrieved = hybrid.retrieve_rrf(question, top_k=self.settings.top_k)
+            retrieved = hybrid.retrieve_rrf(question, top_k=candidate_k)
 
-        reranked = self.reranker.rerank(question, retrieved)
+        # Rerank and truncate down to top_k
+        reranked = self.reranker.rerank(question, retrieved, top_k=self.settings.top_k)
+        
         messages = build_messages(question, reranked, self.prompts)
         answer = self.llm.invoke(messages).content
 
