@@ -16,4 +16,4 @@ hybrid_dense_weight: 0.6
 hybrid_bm25_weight: 0.4
 bm25_k1: 1.5
 bm25_b: 0.75
-reranker_enabled: false
+reranker_enabled: true
