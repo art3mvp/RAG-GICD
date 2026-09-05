@@ -25,11 +25,12 @@ class DenseRetriever:
             docs = self.store.similarity_search_with_score(query, k=top_k)
             for doc, score in docs:
                 metadata = dict(doc.metadata)
+                distance = max(float(score), 0.0)
                 results.append(
                     RetrievalResult(
                         text=doc.page_content,
                         source=str(metadata.get("source", "unknown")),
-                        score=float(score),
+                        score=1.0 / (1.0 + distance),
                         retrieval_method=self.method_name,
                         metadata=metadata,
                     )

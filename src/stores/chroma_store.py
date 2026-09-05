@@ -32,12 +32,22 @@ class ChromaStore:
         except ImportError as exc:
             raise RuntimeError("langchain-core is required") from exc
 
+        if self.exists():
+            existing = Chroma(
+                collection_name=self.collection_name,
+                persist_directory=str(self.persist_dir),
+                embedding_function=embeddings,
+            )
+            existing.delete_collection()
+
         docs = [Document(page_content=chunk.text, metadata=chunk.metadata) for chunk in chunks]
+        ids = [str(chunk.metadata["chunk_id"]) for chunk in chunks]
         self._store = Chroma.from_documents(
             documents=docs,
             embedding=embeddings,
             persist_directory=str(self.persist_dir),
             collection_name=self.collection_name,
+            ids=ids,
         )
 
     def save(self) -> None:
@@ -52,7 +62,37 @@ class ChromaStore:
             embedding_function=embeddings,
         )
 
+    def validate(
+        self,
+        expected_count: int | None = None,
+        expected_chunk_ids: set[str] | None = None,
+    ) -> None:
+        if self._store is None:
+            raise RuntimeError("Chroma store not initialized")
+        collection = getattr(self._store, "_collection", None)
+        if collection is None:
+            raise RuntimeError("Chroma collection is unavailable")
+        count = collection.count()
+        if expected_count is not None and count != expected_count:
+            raise RuntimeError(
+                f"Chroma collection count mismatch: expected {expected_count}, found {count}"
+            )
+        if expected_chunk_ids is not None:
+            records = collection.get(include=["metadatas"])
+            actual_ids = {
+                str(metadata.get("chunk_id"))
+                for metadata in records.get("metadatas", [])
+                if metadata and metadata.get("chunk_id") is not None
+            }
+            if actual_ids != expected_chunk_ids:
+                raise RuntimeError("Chroma collection chunk IDs do not match processed chunks")
+
     def similarity_search_with_relevance_scores(self, query: str, k: int):
         if self._store is None:
             raise RuntimeError("Chroma store not initialized")
         return self._store.similarity_search_with_relevance_scores(query, k=k)
+
+    def similarity_search_with_score(self, query: str, k: int):
+        if self._store is None:
+            raise RuntimeError("Chroma store not initialized")
+        return self._store.similarity_search_with_score(query, k=k)

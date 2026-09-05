@@ -31,6 +31,7 @@ def load_settings(config_path: str | Path = "config/settings.yaml") -> AppSettin
         "langchain_api_key": os.getenv("LANGCHAIN_API_KEY"),
         "langchain_tracing_v2": os.getenv("LANGCHAIN_TRACING_V2"),
         "chroma_persist_dir": os.getenv("CHROMA_PERSIST_DIR"),
+        "hybrid_index_dir": os.getenv("HYBRID_INDEX_DIR"),
         "faiss_index_dir": os.getenv("FAISS_INDEX_DIR"),
         "raw_data_dir": os.getenv("DATA_RAW_DIR"),
         "processed_data_dir": os.getenv("DATA_PROCESSED_DIR"),

@@ -11,6 +11,7 @@ class AppSettings(BaseModel):
     outputs_dir: str = "outputs"
     faiss_index_dir: str = "outputs/indexes/faiss"
     chroma_persist_dir: str = "outputs/indexes/chroma"
+    hybrid_index_dir: str = "outputs/indexes/hybrid"
     runs_dir: str = "outputs/runs"
     reports_dir: str = "outputs/reports"
     logs_dir: str = "outputs/logs"
@@ -36,4 +37,3 @@ class AppSettings(BaseModel):
     openai_api_key: str = ""  
     openai_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
-

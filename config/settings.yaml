@@ -5,6 +5,7 @@ eval_data_dir: data/eval
 outputs_dir: outputs
 faiss_index_dir: outputs/indexes/faiss
 chroma_persist_dir: outputs/indexes/chroma
+hybrid_index_dir: outputs/indexes/hybrid
 runs_dir: outputs/runs
 reports_dir: outputs/reports
 logs_dir: outputs/logs

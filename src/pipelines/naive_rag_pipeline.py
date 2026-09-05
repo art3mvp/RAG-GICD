@@ -27,7 +27,7 @@ class NaiveRAGPipeline(BaseRAGPipeline):
         self.logger.info("Built and saved FAISS index")
 
     def run(self, question: str) -> dict:
-        chunks = self.load_chunks()
+        chunks = self.load_processed_chunks()
         if not chunks:
             return {"question": question, "answer": "I do not know.", "retrieved": []}
 
