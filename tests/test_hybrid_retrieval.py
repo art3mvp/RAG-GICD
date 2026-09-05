@@ -31,3 +31,18 @@ def test_rrf_fusion_deduplicates_by_chunk_id() -> None:
 
     assert len(results) == 3
     assert len({r.metadata["chunk_id"] for r in results}) == 3
+
+
+def test_weighted_fusion_prefers_higher_is_better_dense_scores() -> None:
+    dense = StubRetriever(
+        [
+            RetrievalResult("near", "s1", 0.9, "dense", {"chunk_id": "near"}),
+            RetrievalResult("far", "s2", 0.2, "dense", {"chunk_id": "far"}),
+        ]
+    )
+    bm25 = StubRetriever([])
+
+    results = HybridRetriever(dense, bm25).retrieve_weighted(
+        "query", top_k=2, dense_weight=1.0, bm25_weight=0.0
+    )
+    assert results[0].metadata["chunk_id"] == "near"

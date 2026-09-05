@@ -1,26 +1,48 @@
 from __future__ import annotations
-from sentence_transformers import CrossEncoder
+
+from typing import TYPE_CHECKING
+
 from src.retrievers.dense_retriever import RetrievalResult
 
+if TYPE_CHECKING:
+    from src.config.settings import AppSettings
+
+
 class BaseReranker:
+    def load(self) -> None:
+        """Load any resources needed before reranking."""
+        return None
+
     def rerank(self, query: str, results: list[RetrievalResult], top_k: int) -> list[RetrievalResult]:
         raise NotImplementedError
+
 
 class NoOpReranker(BaseReranker):
     def rerank(self, query: str, results: list[RetrievalResult], top_k: int) -> list[RetrievalResult]:
         return results[:top_k]
 
+
 class CrossEncoderReranker(BaseReranker):
     def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
-        self.model = CrossEncoder(model_name)
+        self.model_name = model_name
+        self.model = None
+
+    def _get_model(self):
+        if self.model is None:
+            from sentence_transformers import CrossEncoder
+
+            self.model = CrossEncoder(self.model_name)
+        return self.model
+
+    def load(self) -> None:
+        self._get_model()
 
     def rerank(self, query: str, results: list[RetrievalResult], top_k: int) -> list[RetrievalResult]:
         if not results:
             return []
 
         pairs = [[query, res.text] for res in results]
-        
-        scores = self.model.predict(pairs)
+        scores = self._get_model().predict(pairs)
 
         for res, score in zip(results, scores):
             res.score = float(score)
@@ -28,6 +50,7 @@ class CrossEncoderReranker(BaseReranker):
 
         results.sort(key=lambda x: x.score, reverse=True)
         return results[:top_k]
+
 
 def get_reranker(settings: AppSettings) -> BaseReranker:
     if not settings.reranker_enabled:

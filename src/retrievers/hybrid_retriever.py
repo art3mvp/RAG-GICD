@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import logging
 
 from src.retrievers.dense_retriever import RetrievalResult
 
@@ -9,6 +10,7 @@ class HybridRetriever:
     def __init__(self, dense_retriever, bm25_retriever) -> None:
         self.dense_retriever = dense_retriever
         self.bm25_retriever = bm25_retriever
+        self.logger = logging.getLogger("hybrid")
 
     @staticmethod
     def _key(item: RetrievalResult) -> str:
@@ -22,7 +24,9 @@ class HybridRetriever:
         bm25_weight: float,
     ) -> list[RetrievalResult]:
         dense = self.dense_retriever.retrieve(query, top_k=top_k)
+        self.logger.info("[RETRIEVAL] Dense retrieval completed: %s candidates from Chroma", len(dense))
         lexical = self.bm25_retriever.retrieve(query, top_k=top_k)
+        self.logger.info("[RETRIEVAL] Lexical retrieval completed: %s candidates from inverted BM25 index", len(lexical))
 
         dense_scores = [item.score for item in dense] or [1.0]
         bm25_scores = [item.score for item in lexical] or [1.0]
@@ -58,7 +62,9 @@ class HybridRetriever:
 
     def retrieve_rrf(self, query: str, top_k: int, k_constant: int = 60) -> list[RetrievalResult]:
         dense = self.dense_retriever.retrieve(query, top_k=top_k)
+        self.logger.info("[RETRIEVAL] Dense retrieval completed: %s candidates from Chroma", len(dense))
         lexical = self.bm25_retriever.retrieve(query, top_k=top_k)
+        self.logger.info("[RETRIEVAL] Lexical retrieval completed: %s candidates from inverted BM25 index", len(lexical))
 
         fused: dict[str, RetrievalResult] = {}
         scores = defaultdict(float)

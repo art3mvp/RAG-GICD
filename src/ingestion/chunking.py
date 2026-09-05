@@ -28,7 +28,10 @@ def chunk_documents(documents: list[TextChunk], chunk_size: int, chunk_overlap: 
         parts = split_text(doc.text, chunk_size, chunk_overlap)
         for idx, chunk in enumerate(parts):
             metadata = dict(doc.metadata)
-            metadata["chunk_id"] = f"{metadata.get('source', 'unknown')}#{idx}"
+            source = str(metadata.get("source", "unknown"))
+            page = metadata.get("page")
+            location = f"page-{page}" if page is not None else "document"
+            metadata["chunk_id"] = f"{source}#{location}#chunk-{idx}"
             metadata["chunk_index"] = idx
             result.append(TextChunk(text=chunk, metadata=metadata))
     return result
