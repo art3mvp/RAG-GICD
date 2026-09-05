@@ -16,7 +16,7 @@ def _get_chroma_class():
 
 
 class ChromaStore:
-    def __init__(self, persist_dir: str | Path, collection_name: str = "hybrid_rag") -> None:
+    def __init__(self, persist_dir: str | Path, collection_name: str = "dense_rag") -> None:
         self.persist_dir = Path(persist_dir)
         self.persist_dir.mkdir(parents=True, exist_ok=True)
         self.collection_name = collection_name

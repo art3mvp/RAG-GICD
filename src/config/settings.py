@@ -9,7 +9,7 @@ class AppSettings(BaseModel):
     processed_data_dir: str = "data/processed"
     eval_data_dir: str = "data/eval"
     outputs_dir: str = "outputs"
-    faiss_index_dir: str = "outputs/indexes/faiss"
+    dense_index_dir: str = "outputs/indexes"
     chroma_persist_dir: str = "outputs/indexes/chroma"
     hybrid_index_dir: str = "outputs/indexes/hybrid"
     runs_dir: str = "outputs/runs"

@@ -14,6 +14,8 @@ def test_load_settings_uses_yaml_defaults(tmp_path: Path) -> None:
     settings = load_settings(cfg)
     assert settings.top_k == 7
     assert settings.chunk_size == 300
+    assert settings.dense_index_dir == "outputs/indexes"
+    assert settings.chroma_persist_dir == "outputs/indexes/chroma"
 
 
 def test_normalize_for_ragas_dataset_uses_ragas_schema() -> None:
