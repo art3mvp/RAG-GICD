@@ -153,7 +153,7 @@ python scripts/evaluate_naive.py outputs/runs/naive_<timestamp>.json data/eval/g
 python scripts/evaluate_hybrid.py outputs/runs/hybrid_<timestamp>.json data/eval/ground_truth.csv
 ```
 
-Reports are written as CSV and JSON under `outputs/reports/`. Output paths can be
+Reports are written as JSON under `outputs/reports/`. Output paths can be
 overridden with `--output` (without the extension), for example:
 
 ```bash
@@ -167,16 +167,29 @@ Este modo calcula únicamente `faithfulness` y `answer_relevancy`:
 python scripts/evaluate_reference_free.py outputs/runs/hybrid_<timestamp>.json
 ```
 
-El informe se escribe por defecto en `outputs/reports/reference_free_eval.csv` y
-`outputs/reports/reference_free_eval.json`. Se puede cambiar con `--output`.
+El informe se escribe por defecto en `outputs/reports/reference_free_eval.json`.
+Se puede cambiar con `--output`.
 
-To compare the two report CSV files:
+To compare the two JSON reports and calculate the mean of each RAGAS metric:
 
 ```bash
-python scripts/compare_results.py outputs/reports/naive_eval.csv outputs/reports/hybrid_eval.csv
+python scripts/compare_results.py outputs/reports/naive_eval.json outputs/reports/hybrid_eval.json
 ```
 
-The comparison is also saved to `outputs/reports/comparison.csv` by default.
+The comparison is saved to `outputs/reports/comparison.json` by default. It
+contains the mean for each metric, the winner per metric and the overall winner.
+
+To run the complete flow from the ground-truth questions, including ingestion,
+asynchronous execution of both pipelines, RAGAS evaluation and comparison:
+
+```bash
+python scripts/run_full_evaluation.py data/eval/ground_truth.csv --concurrency 4
+```
+
+The batch run files are written to `outputs/runs/naive_batch.json` and
+`outputs/runs/hybrid_batch.json`. Questions are matched exactly against the CSV
+before evaluation, and the final overall winner is written to
+`outputs/reports/comparison.json` and printed to the console.
 
 ## Testing
 

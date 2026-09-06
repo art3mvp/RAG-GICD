@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from pathlib import Path
 
 from src.config.loader import load_prompts, load_settings
@@ -124,7 +125,7 @@ class BaseRAGPipeline:
     def save_run(self, payload: dict) -> Path:
         runs_dir = Path(self.settings.runs_dir)
         runs_dir.mkdir(parents=True, exist_ok=True)
-        file_path = runs_dir / f"{self.pipeline_name}_{int(time.time())}.json"
+        file_path = runs_dir / f"{self.pipeline_name}_{time.time_ns()}_{uuid.uuid4().hex[:8]}.json"
         dump_json(file_path, payload)
         self._log("Run saved | output=%s", file_path)
         return file_path

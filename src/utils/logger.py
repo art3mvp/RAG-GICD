@@ -12,7 +12,9 @@ def get_logger(name: str, logs_dir: str | Path) -> logging.Logger:
     logger.setLevel(logging.INFO)
     Path(logs_dir).mkdir(parents=True, exist_ok=True)
 
-    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | thread_id=%(thread)d | thread_name=%(threadName)s | %(message)s"
+    )
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)

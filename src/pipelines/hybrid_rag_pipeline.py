@@ -116,6 +116,7 @@ class HybridRAGPipeline(BaseRAGPipeline):
         # Rerank and truncate down to top_k
         self._log("Reranking input prepared | rerank_input_k=%s rerank_top_k=%s", len(retrieved), self.settings.top_k)
         rerank_load_started = time.perf_counter()
+        self._log("Loading reranker model | model=%s", self.settings.reranker_model)
         self.reranker.load()
         self._log("Reranker model ready | model=%s load_duration_ms=%.1f", self.settings.reranker_model, (time.perf_counter() - rerank_load_started) * 1000)
         rerank_started = time.perf_counter()
