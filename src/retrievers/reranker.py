@@ -23,7 +23,7 @@ class NoOpReranker(BaseReranker):
 
 
 class CrossEncoderReranker(BaseReranker):
-    def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
+    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
         self.model_name = model_name
         self.model = None
 
@@ -31,7 +31,7 @@ class CrossEncoderReranker(BaseReranker):
         if self.model is None:
             from sentence_transformers import CrossEncoder
 
-            self.model = CrossEncoder(self.model_name)
+            self.model = CrossEncoder(self.model_name, local_files_only=True)
         return self.model
 
     def load(self) -> None:

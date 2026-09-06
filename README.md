@@ -67,8 +67,15 @@ HF_TOKEN=your-hugging-face-token
 
 `OPENAI_API_KEY` is required by the embedding and generation components. `HF_TOKEN`
 is required to authenticate with Hugging Face and obtain faster model downloads.
-The reranker weights are then stored in the local Hugging Face cache and reused by
-later runs. The model variables can also use any model supported by the configured
+Download the reranker once into the repository-local `models/` directory:
+
+```bash
+python scripts/download_reranker.py
+```
+
+Later runs load the reranker from disk without downloading it again. The model
+weights are ignored by Git, so each new checkout must run the download command
+once. The model variables can also use any model supported by the configured
 LangChain OpenAI classes. Do not commit `.env` or API keys.
 
 The current YAML defaults are:
@@ -82,7 +89,7 @@ The current YAML defaults are:
 | `hybrid_fusion_strategy` | `rrf` |
 | `hybrid_dense_weight` / `hybrid_bm25_weight` | `0.6` / `0.4` |
 | `reranker_enabled` | `true` |
-| `reranker_model` | `BAAI/bge-reranker-base` |
+| `reranker_model` | `models/bge-reranker-v2-m3` |
 
 Paths default to `data/` and `outputs/`. They can be changed with
 `DENSE_INDEX_DIR`, `CHROMA_PERSIST_DIR`, `DATA_RAW_DIR` and
@@ -152,6 +159,16 @@ overridden with `--output` (without the extension), for example:
 ```bash
 python scripts/evaluate_hybrid.py outputs/runs/hybrid_<timestamp>.json data/eval/ground_truth.csv --output outputs/reports/hybrid_eval
 ```
+
+También se puede evaluar un run sin ground truth ni respuestas de referencia.
+Este modo calcula únicamente `faithfulness` y `answer_relevancy`:
+
+```bash
+python scripts/evaluate_reference_free.py outputs/runs/hybrid_<timestamp>.json
+```
+
+El informe se escribe por defecto en `outputs/reports/reference_free_eval.csv` y
+`outputs/reports/reference_free_eval.json`. Se puede cambiar con `--output`.
 
 To compare the two report CSV files:
 
