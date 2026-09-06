@@ -22,7 +22,7 @@ class AppSettings(BaseModel):
     initial_k: int = Field(default=20, ge=1)    
     chunk_size: int = Field(default=600, ge=50)
     chunk_overlap: int = Field(default=120, ge=0)
-    chunking_strategy: Literal["fixed", "logical"] = "fixed"
+    chunking_strategy: Literal["fixed"] = "fixed"
     
     # Hybrid settings
     hybrid_fusion_strategy: str = "rrf"
