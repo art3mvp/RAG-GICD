@@ -5,14 +5,16 @@ eval_data_dir: data/eval
 outputs_dir: outputs
 dense_index_dir: outputs/indexes
 chroma_persist_dir: outputs/indexes/chroma
-hybrid_index_dir: outputs/indexes/hybrid
+hybrid_index_dir: outputs/indexes
 runs_dir: outputs/runs
 reports_dir: outputs/reports
 logs_dir: outputs/logs
 top_k: 5
 chunk_size: 600
 chunk_overlap: 120
+chunking_strategy: fixed
 hybrid_fusion_strategy: rrf
+rrf_k: 60
 hybrid_dense_weight: 0.6
 hybrid_bm25_weight: 0.4
 bm25_k1: 1.5

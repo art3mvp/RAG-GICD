@@ -9,7 +9,7 @@ from src.utils.io import dump_json, load_json
 
 HYBRID_ARTIFACT_VERSION = 1
 DENSE_ARTIFACT_VERSION = 1
-MANIFEST_FILENAME = "manifest.json"
+MANIFEST_FILENAME = "hybrid_manifest.json"
 DENSE_MANIFEST_FILENAME = "dense_manifest.json"
 BM25_FILENAME = "lexical/bm25.pkl"
 
@@ -28,6 +28,7 @@ def build_manifest(chunks: list[TextChunk], settings: Any, collection_name: str)
         "corpus_hash": chunks_hash(chunks),
         "chunk_count": len(chunks),
         "chunking": {
+            "strategy": getattr(settings, "chunking_strategy", "fixed"),
             "chunk_size": settings.chunk_size,
             "chunk_overlap": settings.chunk_overlap,
         },
@@ -49,6 +50,7 @@ def build_dense_manifest(chunks: list[TextChunk], settings: Any, collection_name
         "corpus_hash": chunks_hash(chunks),
         "chunk_count": len(chunks),
         "chunking": {
+            "strategy": getattr(settings, "chunking_strategy", "fixed"),
             "chunk_size": settings.chunk_size,
             "chunk_overlap": settings.chunk_overlap,
         },
