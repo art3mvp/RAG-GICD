@@ -34,7 +34,7 @@ class AppSettings(BaseModel):
     
     # Reranker settings
     reranker_enabled: bool = True
-    reranker_model: str = "BAAI/bge-reranker-base"
+    reranker_model: str = "models/bge-reranker-v2-m3"
     
     # API keys & models
     openai_api_key: str = ""  
