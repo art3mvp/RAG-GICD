@@ -7,10 +7,13 @@ from src.retrievers.dense_retriever import RetrievalResult
 
 
 class HybridRetriever:
-    def __init__(self, dense_retriever, bm25_retriever) -> None:
+    def __init__(self, dense_retriever, bm25_retriever, logger=None) -> None:
         self.dense_retriever = dense_retriever
         self.bm25_retriever = bm25_retriever
-        self.logger = logging.getLogger("hybrid")
+        self.logger = logger or logging.getLogger("hybrid")
+
+    def _log(self, message: str, *args) -> None:
+        self.logger.info(message, *args)
 
     @staticmethod
     def _key(item: RetrievalResult) -> str:
@@ -24,9 +27,9 @@ class HybridRetriever:
         bm25_weight: float,
     ) -> list[RetrievalResult]:
         dense = self.dense_retriever.retrieve(query, top_k=top_k)
-        self.logger.info("[RETRIEVAL] Dense retrieval completed: %s candidates from Chroma", len(dense))
+        self._log("Dense retrieval completed | dense_k=%s", len(dense))
         lexical = self.bm25_retriever.retrieve(query, top_k=top_k)
-        self.logger.info("[RETRIEVAL] Lexical retrieval completed: %s candidates from inverted BM25 index", len(lexical))
+        self._log("Lexical retrieval completed | bm25_k=%s", len(lexical))
 
         dense_scores = [item.score for item in dense] or [1.0]
         bm25_scores = [item.score for item in lexical] or [1.0]
@@ -48,7 +51,12 @@ class HybridRetriever:
             if key not in fused:
                 fused[key] = item
 
+        fused_unique_count = len(merged_scores)
         ranked_keys = sorted(merged_scores, key=lambda key: merged_scores[key], reverse=True)[:top_k]
+        self._log(
+            "Weighted fusion completed | dense_k=%s bm25_k=%s fused_unique_count=%s fused_k=%s",
+            len(dense), len(lexical), fused_unique_count, len(ranked_keys),
+        )
         return [
             RetrievalResult(
                 text=fused[key].text,
@@ -62,9 +70,9 @@ class HybridRetriever:
 
     def retrieve_rrf(self, query: str, top_k: int, k_constant: int = 60) -> list[RetrievalResult]:
         dense = self.dense_retriever.retrieve(query, top_k=top_k)
-        self.logger.info("[RETRIEVAL] Dense retrieval completed: %s candidates from Chroma", len(dense))
+        self._log("Dense retrieval completed | dense_k=%s", len(dense))
         lexical = self.bm25_retriever.retrieve(query, top_k=top_k)
-        self.logger.info("[RETRIEVAL] Lexical retrieval completed: %s candidates from inverted BM25 index", len(lexical))
+        self._log("Lexical retrieval completed | bm25_k=%s", len(lexical))
 
         fused: dict[str, RetrievalResult] = {}
         scores = defaultdict(float)
@@ -80,7 +88,12 @@ class HybridRetriever:
             if key not in fused:
                 fused[key] = item
 
+        fused_unique_count = len(scores)
         ranked_keys = sorted(scores, key=lambda key: scores[key], reverse=True)[:top_k]
+        self._log(
+            "RRF fusion completed | dense_k=%s bm25_k=%s fused_unique_count=%s fused_k=%s rrf_k=%s",
+            len(dense), len(lexical), fused_unique_count, len(ranked_keys), k_constant,
+        )
         return [
             RetrievalResult(
                 text=fused[key].text,

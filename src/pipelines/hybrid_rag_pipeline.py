@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from src.embeddings.embedding_factory import create_embeddings
@@ -32,13 +33,14 @@ class HybridRAGPipeline(BaseRAGPipeline):
 
     def prepare_indexes(self, chunks) -> None:
         """Load and validate offline-built artifacts; never build them online."""
-        index_dir = Path(self.settings.hybrid_index_dir)
-        self.logger.info("[QUERY 3/9] Loading hybrid manifest from %s", index_dir / MANIFEST_FILENAME)
+        started = time.perf_counter()
+        index_dir = Path(self.settings.dense_index_dir)
+        self._log("Loading hybrid manifest")
         manifest = load_manifest(index_dir / MANIFEST_FILENAME)
         validate_manifest(manifest, chunks, self.settings, self.store.collection_name)
-        self.logger.info("[QUERY 4/9] Manifest validated: corpus, chunking, embedding and BM25 settings match")
-        bm25_path = index_dir / manifest["artifacts"].get("bm25", BM25_FILENAME)
-        self.logger.info("[QUERY 5/9] Loading lexical inverted BM25 index from %s", bm25_path)
+        self._log("Hybrid manifest validated | corpus_and_index_settings_match=true")
+        bm25_path = Path(self.settings.hybrid_index_dir) / manifest["artifacts"].get("bm25", BM25_FILENAME)
+        self._log("Loading lexical BM25 index")
         self.bm25 = BM25Retriever.load(bm25_path)
         if self.bm25.parameters != (self.settings.bm25_k1, self.settings.bm25_b):
             raise RuntimeError("BM25 artifact parameters do not match the manifest")
@@ -49,34 +51,58 @@ class HybridRAGPipeline(BaseRAGPipeline):
             raise RuntimeError("BM25 artifact does not match the processed chunks")
         if not self.store.exists():
             raise RuntimeError(f"Chroma index not found: {self.store.persist_dir}")
-        self.logger.info("[QUERY 6/9] Loading dense Chroma vector index from %s", self.store.persist_dir)
+        self._log("Loading dense Chroma index")
         self.store.load(self.embeddings)
         self.store.validate(
             expected_count=len(chunks),
             expected_chunk_ids={str(chunk.metadata.get("chunk_id")) for chunk in chunks},
         )
-        self.logger.info("[QUERY 7/9] Dense and lexical indexes validated successfully (%s chunks)", len(chunks))
+        self._log(
+            "Dense and lexical indexes validated | chunk_count=%s duration_ms=%.1f",
+            len(chunks),
+            (time.perf_counter() - started) * 1000,
+        )
 
     def run(self, question: str) -> dict:
-        self.logger.info("[QUERY START] Received question: %s", question)
+        self._start_run("hybrid_query")
+        self._log_configuration()
+        if self.settings.hybrid_fusion_strategy == "weighted":
+            self._log(
+                "Hybrid retrieval configuration | fusion_strategy=weighted dense_weight=%s bm25_weight=%s bm25_k1=%s bm25_b=%s reranker_enabled=%s reranker_model=%s",
+                self.settings.hybrid_dense_weight,
+                self.settings.hybrid_bm25_weight,
+                self.settings.bm25_k1,
+                self.settings.bm25_b,
+                self.settings.reranker_enabled,
+                self.settings.reranker_model,
+            )
+        else:
+            self._log(
+                "Hybrid retrieval configuration | fusion_strategy=rrf formula=1/(rrf_k+rank) rrf_k=%s bm25_k1=%s bm25_b=%s reranker_enabled=%s reranker_model=%s",
+                self.settings.rrf_k,
+                self.settings.bm25_k1,
+                self.settings.bm25_b,
+                self.settings.reranker_enabled,
+                self.settings.reranker_model,
+            )
         chunks = self.load_processed_chunks()
         if not chunks:
+            self._log("Processed corpus is empty | returning fallback answer")
             return {"question": question, "answer": "I do not know.", "retrieved": []}
 
-        self.logger.info("[QUERY 2/9] Initializing embedding model for dense retrieval: %s", self.settings.openai_embedding_model)
         self.embeddings = create_embeddings(self.settings)
         self.llm = create_chat_llm(self.settings)
         self.prepare_indexes(chunks)
         dense = DenseRetriever(self.store, method_name="chroma_dense")
         if self.bm25 is None:
             raise RuntimeError("BM25 index was not loaded")
-        hybrid = HybridRetriever(dense, self.bm25)
+        hybrid = HybridRetriever(dense, self.bm25, logger=self.logger)
 
         # Retrieve candidate pool (initial_k instead of top_k)
         candidate_k = self.settings.initial_k if self.settings.reranker_enabled else self.settings.top_k
 
         if self.settings.hybrid_fusion_strategy == "weighted":
-            self.logger.info("[QUERY 8/9] Retrieving candidates with dense similarity + BM25, then weighted fusion (dense=%s, bm25=%s)", self.settings.hybrid_dense_weight, self.settings.hybrid_bm25_weight)
+            self._log("Retrieving and fusing candidates | strategy=weighted dense_weight=%s bm25_weight=%s candidate_k=%s", self.settings.hybrid_dense_weight, self.settings.hybrid_bm25_weight, candidate_k)
             retrieved = hybrid.retrieve_weighted(
                 question,
                 top_k=candidate_k,
@@ -84,24 +110,34 @@ class HybridRAGPipeline(BaseRAGPipeline):
                 bm25_weight=self.settings.hybrid_bm25_weight,
             )
         else:
-            self.logger.info("[QUERY 8/9] Retrieving candidates with dense similarity + BM25, then reciprocal-rank fusion (top_k=%s)", candidate_k)
-            retrieved = hybrid.retrieve_rrf(question, top_k=candidate_k)
+            self._log("Retrieving and fusing candidates | strategy=rrf candidate_k=%s", candidate_k)
+            retrieved = hybrid.retrieve_rrf(question, top_k=candidate_k, k_constant=self.settings.rrf_k)
 
         # Rerank and truncate down to top_k
-        self.logger.info("[QUERY 8/9] Fusion returned %s candidates; reranking to top_k=%s", len(retrieved), self.settings.top_k)
+        self._log("Reranking input prepared | rerank_input_k=%s rerank_top_k=%s", len(retrieved), self.settings.top_k)
+        rerank_load_started = time.perf_counter()
+        self.reranker.load()
+        self._log("Reranker model ready | model=%s load_duration_ms=%.1f", self.settings.reranker_model, (time.perf_counter() - rerank_load_started) * 1000)
+        rerank_started = time.perf_counter()
         reranked = self.reranker.rerank(question, retrieved, top_k=self.settings.top_k)
-        self.logger.info("[QUERY 9/9] Reranking completed: %s final context chunks; generating answer", len(reranked))
+        self._log("Reranking completed | final_context_chunks=%s duration_ms=%.1f", len(reranked), (time.perf_counter() - rerank_started) * 1000)
         
         messages = build_messages(question, reranked, self.prompts)
-        answer = self.llm.invoke(messages).content
+        generation_started = time.perf_counter()
+        self._log("Generating answer | context_chunks=%s", len(reranked))
+        raw_answer = self.llm.invoke(messages).content
+        self._log("Answer generated | duration_ms=%.1f", (time.perf_counter() - generation_started) * 1000)
+        citations = self.build_citations(reranked)
+        answer = self.add_citations(raw_answer, citations)
 
         payload = {
             "pipeline": self.pipeline_name,
             "question": question,
             "answer": answer,
             "retrieved": [item.__dict__ for item in reranked],
+            "citations": citations,
+            "prompt_version": self.prompt_version,
         }
         output_file = self.save_run(payload)
-        self.logger.info("Run saved to %s", output_file)
-        self.logger.info("[QUERY COMPLETE] Answer generated and run saved")
+        self._log("Hybrid query completed | retrieved_count=%s output=%s", len(reranked), output_file)
         return payload

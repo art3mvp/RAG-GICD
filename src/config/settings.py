@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class AppSettings(BaseModel):
@@ -11,7 +12,7 @@ class AppSettings(BaseModel):
     outputs_dir: str = "outputs"
     dense_index_dir: str = "outputs/indexes"
     chroma_persist_dir: str = "outputs/indexes/chroma"
-    hybrid_index_dir: str = "outputs/indexes/hybrid"
+    hybrid_index_dir: str = "outputs/indexes"
     runs_dir: str = "outputs/runs"
     reports_dir: str = "outputs/reports"
     logs_dir: str = "outputs/logs"
@@ -21,9 +22,11 @@ class AppSettings(BaseModel):
     initial_k: int = Field(default=20, ge=1)    
     chunk_size: int = Field(default=600, ge=50)
     chunk_overlap: int = Field(default=120, ge=0)
+    chunking_strategy: Literal["fixed", "logical"] = "fixed"
     
     # Hybrid settings
     hybrid_fusion_strategy: str = "rrf"
+    rrf_k: int = Field(default=60, ge=1)
     hybrid_dense_weight: float = Field(default=0.6, ge=0.0, le=1.0)
     hybrid_bm25_weight: float = Field(default=0.4, ge=0.0, le=1.0)
     bm25_k1: float = 1.5
