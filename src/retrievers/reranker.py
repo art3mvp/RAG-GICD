@@ -30,7 +30,9 @@ class CrossEncoderReranker(BaseReranker):
     def _get_model(self):
         if self.model is None:
             from sentence_transformers import CrossEncoder
+            from transformers.utils.logging import disable_progress_bar
 
+            disable_progress_bar()
             self.model = CrossEncoder(self.model_name, local_files_only=True)
         return self.model
 

@@ -179,6 +179,18 @@ python scripts/compare_results.py outputs/reports/naive_eval.json outputs/report
 The comparison is saved to `outputs/reports/comparison.json` by default. It
 contains the mean for each metric, the winner per metric and the overall winner.
 
+To run the complete flow from the ground-truth questions, including ingestion,
+asynchronous execution of both pipelines, RAGAS evaluation and comparison:
+
+```bash
+python scripts/run_full_evaluation.py data/eval/ground_truth.csv --concurrency 4
+```
+
+The batch run files are written to `outputs/runs/naive_batch.json` and
+`outputs/runs/hybrid_batch.json`. Questions are matched exactly against the CSV
+before evaluation, and the final overall winner is written to
+`outputs/reports/comparison.json` and printed to the console.
+
 ## Testing
 
 ```bash

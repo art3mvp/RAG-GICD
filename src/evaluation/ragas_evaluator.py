@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +9,31 @@ import pandas as pd
 
 from src.config.loader import load_settings
 from src.utils.io import dump_json
+from src.utils.logger import get_logger
+
+
+class _RagasGenerationNoticeFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        match = re.match(
+            r"LLM returned (\d+) generations instead of requested (\d+)\.",
+            message,
+        )
+        if match:
+            return False
+        return True
+
+
+def _configure_ragas_logging(logs_dir: str | Path) -> logging.Logger:
+    logger = get_logger("evaluation", logs_dir)
+    ragas_logger = logging.getLogger("ragas.prompt.pydantic_prompt")
+    if not any(isinstance(item, _RagasGenerationNoticeFilter) for item in ragas_logger.filters):
+        ragas_logger.addFilter(_RagasGenerationNoticeFilter())
+    if not ragas_logger.handlers:
+        for handler in logger.handlers:
+            ragas_logger.addHandler(handler)
+        ragas_logger.propagate = False
+    return logger
 
 
 def _normalize_for_ragas_dataset(dataset: pd.DataFrame | list[dict[str, Any]]) -> Any:
@@ -68,6 +95,7 @@ def evaluate_with_ragas(dataset: pd.DataFrame, output_prefix: str | Path) -> dic
         raise RuntimeError("ragas, langchain-openai, and OpenAI dependencies are required for evaluation") from exc
 
     settings = load_settings()
+    logger = _configure_ragas_logging(settings.logs_dir)
     if not settings.openai_api_key:
         raise ValueError("OPENAI_API_KEY is required for RAGAS evaluation")
 
@@ -83,11 +111,13 @@ def evaluate_with_ragas(dataset: pd.DataFrame, output_prefix: str | Path) -> dic
 
     ragas_dataset = _normalize_for_ragas_dataset(dataset)
     metrics = [faithfulness, answer_relevancy, context_precision, context_recall]
+    logger.info("RAGAS evaluation started | rows=%s metrics=%s", len(dataset), len(metrics))
     result = evaluate(
         ragas_dataset,
         metrics=metrics,
         llm=LangchainLLMWrapper(llm),
         embeddings=LangchainEmbeddingsWrapper(embeddings),
+        show_progress=False,
     )
     result_df = result.to_pandas()
     summary = result_df.mean(numeric_only=True).to_dict()
@@ -95,6 +125,7 @@ def evaluate_with_ragas(dataset: pd.DataFrame, output_prefix: str | Path) -> dic
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
     dump_json(output_prefix.with_suffix(".json"), {"summary": summary, "rows": result_df.to_dict(orient="records")})
+    logger.info("RAGAS evaluation completed | rows=%s output=%s", len(result_df), output_prefix.with_suffix(".json"))
     return {"summary": summary, "rows": result_df.to_dict(orient="records")}
 
 
@@ -109,6 +140,7 @@ def evaluate_reference_free_with_ragas(dataset: pd.DataFrame, output_prefix: str
         raise RuntimeError("ragas and langchain-openai are required for evaluation") from exc
 
     settings = load_settings()
+    logger = _configure_ragas_logging(settings.logs_dir)
     if not settings.openai_api_key:
         raise ValueError("OPENAI_API_KEY is required for RAGAS evaluation")
 
@@ -122,11 +154,13 @@ def evaluate_reference_free_with_ragas(dataset: pd.DataFrame, output_prefix: str
         api_key=settings.openai_api_key,
     )
     ragas_dataset = _normalize_reference_free_dataset(dataset)
+    logger.info("Reference-free RAGAS evaluation started | rows=%s metrics=%s", len(dataset), 2)
     result = evaluate(
         ragas_dataset,
         metrics=[faithfulness, answer_relevancy],
         llm=LangchainLLMWrapper(llm),
         embeddings=LangchainEmbeddingsWrapper(embeddings),
+        show_progress=False,
     )
     result_df = result.to_pandas()
     summary = result_df.mean(numeric_only=True).to_dict()
@@ -134,4 +168,5 @@ def evaluate_reference_free_with_ragas(dataset: pd.DataFrame, output_prefix: str
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
     dump_json(output_prefix.with_suffix(".json"), {"summary": summary, "rows": result_df.to_dict(orient="records")})
+    logger.info("Reference-free RAGAS evaluation completed | rows=%s output=%s", len(result_df), output_prefix.with_suffix(".json"))
     return {"summary": summary, "rows": result_df.to_dict(orient="records")}

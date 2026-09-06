@@ -11,24 +11,38 @@ def build_eval_dataset(run_file: str | Path, ground_truth_file: str | Path) -> p
     run_data = load_json(run_file)
     gt_df = pd.read_csv(ground_truth_file)
 
-    question = run_data.get("question", "")
-    answer = run_data.get("answer", "")
-    contexts = [item.get("text", "") for item in run_data.get("retrieved", [])]
+    if "question" not in gt_df or "ground_truth" not in gt_df:
+        raise ValueError("Ground-truth CSV must contain question and ground_truth columns")
 
-    row = gt_df.loc[gt_df["question"] == question]
-    if row.empty:
-        ground_truth = ""
-    else:
-        ground_truth = str(row.iloc[0]["ground_truth"])
+    payloads = run_data.get("results") if isinstance(run_data, dict) else None
+    if payloads is None:
+        payloads = [run_data]
+    if not isinstance(payloads, list) or not all(isinstance(payload, dict) for payload in payloads):
+        raise ValueError("Run file must contain a payload or a results list")
 
-    return pd.DataFrame(
-        [
+    ground_truth_by_question = {
+        str(row.question): str(row.ground_truth)
+        for row in gt_df.itertuples(index=False)
+    }
+    questions = [str(payload.get("question", "")) for payload in payloads]
+    if len(set(questions)) != len(questions):
+        raise ValueError("Run file contains duplicate questions")
+
+    missing = [question for question in questions if question not in ground_truth_by_question]
+    if missing:
+        raise ValueError(f"Questions missing from ground truth: {missing}")
+
+    rows = []
+    for payload, question in zip(payloads, questions):
+        contexts = [item.get("text", "") for item in payload.get("retrieved", [])]
+        rows.append(
             {
                 "question": question,
-                "ground_truth": ground_truth,
-                "answer": answer,
+                "ground_truth": ground_truth_by_question[question],
+                "answer": payload.get("answer", ""),
                 "contexts": contexts,
                 "retrieved_contexts": contexts,
             }
-        ]
-    )
+        )
+
+    return pd.DataFrame(rows)
