@@ -94,7 +94,6 @@ def evaluate_with_ragas(dataset: pd.DataFrame, output_prefix: str | Path) -> dic
 
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
-    result_df.to_csv(output_prefix.with_suffix(".csv"), index=False)
     dump_json(output_prefix.with_suffix(".json"), {"summary": summary, "rows": result_df.to_dict(orient="records")})
     return {"summary": summary, "rows": result_df.to_dict(orient="records")}
 
@@ -134,6 +133,5 @@ def evaluate_reference_free_with_ragas(dataset: pd.DataFrame, output_prefix: str
 
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
-    result_df.to_csv(output_prefix.with_suffix(".csv"), index=False)
     dump_json(output_prefix.with_suffix(".json"), {"summary": summary, "rows": result_df.to_dict(orient="records")})
     return {"summary": summary, "rows": result_df.to_dict(orient="records")}
