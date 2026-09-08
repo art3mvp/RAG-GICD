@@ -73,7 +73,10 @@ def _normalize_dataset(
         normalized_row = {
             "user_input": user_input,
             "response": response,
-            "retrieved_contexts": [str(item) for item in retrieved_contexts],
+            "retrieved_contexts": [
+                str(item.get("text", "")) if isinstance(item, dict) else str(item)
+                for item in retrieved_contexts
+            ],
         }
         if include_reference:
             normalized_row["reference"] = str(row.get("ground_truth") or row.get("reference") or "")
@@ -122,11 +125,22 @@ def evaluate_with_ragas(dataset: pd.DataFrame, output_prefix: str | Path) -> dic
     result_df = result.to_pandas()
     summary = result_df.mean(numeric_only=True).to_dict()
 
+    source_rows = dataset.to_dict(orient="records")
+    provenance_by_question = {
+        str(row.get("question") or ""): row.get("retrieved_contexts") or []
+        for row in source_rows
+    }
+    report_rows = result_df.to_dict(orient="records")
+    for row in report_rows:
+        question = str(row.get("user_input") or "")
+        if question in provenance_by_question:
+            row["retrieved_contexts"] = provenance_by_question[question]
+
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
-    dump_json(output_prefix.with_suffix(".json"), {"summary": summary, "rows": result_df.to_dict(orient="records")})
-    logger.info("RAGAS evaluation completed | rows=%s output=%s", len(result_df), output_prefix.with_suffix(".json"))
-    return {"summary": summary, "rows": result_df.to_dict(orient="records")}
+    dump_json(output_prefix.with_suffix(".json"), {"summary": summary, "rows": report_rows})
+    logger.info("RAGAS evaluation completed | rows=%s output=%s", len(report_rows), output_prefix.with_suffix(".json"))
+    return {"summary": summary, "rows": report_rows}
 
 
 def evaluate_reference_free_with_ragas(dataset: pd.DataFrame, output_prefix: str | Path) -> dict:

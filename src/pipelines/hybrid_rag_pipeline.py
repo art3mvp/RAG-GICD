@@ -131,14 +131,14 @@ class HybridRAGPipeline(BaseRAGPipeline):
         citations = self.build_citations(reranked)
         answer = self.add_citations(raw_answer, citations)
 
-        payload = {
+        run_payload = {
             "pipeline": self.pipeline_name,
             "question": question,
-            "answer": answer,
+            "answer": raw_answer,
             "retrieved": [item.__dict__ for item in reranked],
             "citations": citations,
             "prompt_version": self.prompt_version,
         }
-        output_file = self.save_run(payload)
+        output_file = self.save_run(run_payload)
         self._log("Hybrid query completed | retrieved_count=%s output=%s", len(reranked), output_file)
-        return payload
+        return {**run_payload, "answer": answer}
