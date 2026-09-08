@@ -16,7 +16,7 @@ def test_build_eval_dataset_preserves_batch_question_alignment(tmp_path) -> None
                     {
                         "question": "first",
                         "answer": "answer 1",
-                        "retrieved": [{"text": "context 1"}],
+                        "retrieved": [{"text": "context 1", "source": "source-1", "metadata": {"chunk_id": "c1"}}],
                     },
                     {
                         "question": "second",
@@ -40,3 +40,5 @@ def test_build_eval_dataset_preserves_batch_question_alignment(tmp_path) -> None
     assert dataset["question"].tolist() == ["first", "second"]
     assert dataset["ground_truth"].tolist() == ["reference 1", "reference 2"]
     assert dataset["contexts"].tolist() == [["context 1"], ["context 2"]]
+    assert dataset["retrieved_contexts"].iloc[0][0]["source"] == "source-1"
+    assert dataset["retrieved_contexts"].iloc[0][0]["metadata"]["chunk_id"] == "c1"

@@ -34,14 +34,16 @@ def build_eval_dataset(run_file: str | Path, ground_truth_file: str | Path) -> p
 
     rows = []
     for payload, question in zip(payloads, questions):
-        contexts = [item.get("text", "") for item in payload.get("retrieved", [])]
+        retrieved = payload.get("retrieved", [])
+        context_records = [item for item in retrieved if isinstance(item, dict)]
+        contexts = [item.get("text", "") for item in context_records]
         rows.append(
             {
                 "question": question,
                 "ground_truth": ground_truth_by_question[question],
                 "answer": payload.get("answer", ""),
                 "contexts": contexts,
-                "retrieved_contexts": contexts,
+                "retrieved_contexts": context_records,
             }
         )
 

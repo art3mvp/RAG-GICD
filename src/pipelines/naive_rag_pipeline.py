@@ -70,14 +70,14 @@ class NaiveRAGPipeline(BaseRAGPipeline):
         citations = self.build_citations(retrieved)
         answer = self.add_citations(raw_answer, citations)
 
-        payload = {
+        run_payload = {
             "pipeline": self.pipeline_name,
             "question": question,
-            "answer": answer,
+            "answer": raw_answer,
             "retrieved": [item.__dict__ for item in retrieved],
             "citations": citations,
             "prompt_version": self.prompt_version,
         }
-        output_file = self.save_run(payload)
+        output_file = self.save_run(run_payload)
         self._log("Naive query completed | retrieved_count=%s output=%s", len(retrieved), output_file)
-        return payload
+        return {**run_payload, "answer": answer}
